@@ -1,0 +1,29 @@
+{
+  "name": "altogether",
+  "version": "0.1.0",
+  "description": "Chinese remote team collaboration platform - virtual office experience",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@altogether/web",
+    "server:dev": "npm run dev --workspace=@altogether/server",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "electron:dev": "npm run dev --workspace=@altogether/desktop",
+    "electron:build": "npm run build --workspace=@altogether/desktop",
+    "mobile:ios": "npm run ios --workspace=@altogether/mobile",
+    "mobile:android": "npm run android --workspace=@altogether/mobile",
+    "install:all": "npm install && npm install --workspaces"
+  },
+  "keywords": ["remote", "collaboration", "virtual-office", "chinese", "teams"],
+  "author": "Altogether Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

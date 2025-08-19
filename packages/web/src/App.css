@@ -1,0 +1,17 @@
+.app-layout {
+  height: 100vh;
+}
+
+.app-header {
+  background: #1890ff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.app-content {
+  height: calc(100vh - 64px);
+  padding: 0;
+  overflow: hidden;
+}
