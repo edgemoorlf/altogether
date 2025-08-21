@@ -46,4 +46,6 @@ Thumbs.db
 tmp/
 temp/
 
+test-results/
+
 *.md

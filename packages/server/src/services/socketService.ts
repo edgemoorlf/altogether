@@ -15,16 +15,24 @@ export const setupSocketHandlers = (io: SocketServer) => {
   io.use((socket, next) => {
     // Optional: JWT authentication for socket connections
     const token = socket.handshake.auth.token
+    const username = socket.handshake.auth.username
     
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
         socket.data.userId = decoded.userId
         socket.data.username = decoded.username
+        console.log('🔑 Socket authenticated via JWT:', decoded.username)
       } catch (error) {
         // Continue without auth for now (development)
         console.log('Socket auth failed, continuing without auth')
       }
+    }
+    
+    // For development: Also check for direct username in auth
+    if (username && !socket.data.username) {
+      socket.data.username = username
+      console.log('🔑 Socket authenticated via username:', username)
     }
     
     next()
@@ -40,17 +48,24 @@ export const setupSocketHandlers = (io: SocketServer) => {
       username: socket.data.username || `User-${socket.id.slice(0, 6)}`
     })
 
-    // Send welcome message
+    // Send welcome message with all existing users and their positions
+    const existingUsers = Array.from(connectedUsers.values()).filter(u => u.id !== socket.id)
     socket.emit('welcome', {
       message: '欢迎来到 Altogether 虚拟办公室!',
       userId: socket.id,
-      connectedUsers: Array.from(connectedUsers.values())
+      connectedUsers: Array.from(connectedUsers.values()),
+      existingUserPositions: existingUsers.map(u => ({
+        userId: u.id,
+        username: u.username,
+        position: u.position || { x: 400, y: 300 }
+      }))
     })
 
     // Broadcast to others that a new user joined
     socket.broadcast.emit('userJoined', {
       userId: socket.id,
-      username: connectedUsers.get(socket.id)?.username
+      username: connectedUsers.get(socket.id)?.username,
+      position: { x: 400, y: 300 } // Default spawn position
     })
 
     // Handle joining a room
@@ -83,15 +98,45 @@ export const setupSocketHandlers = (io: SocketServer) => {
     // Handle user movement
     socket.on('playerMove', (data: { x: number; y: number }) => {
       const user = connectedUsers.get(socket.id)
-      if (user) {
-        user.position = data
-        connectedUsers.set(socket.id, user)
-        
-        // Broadcast to room or all users
-        const targetRoom = user.room || socket.id
-        socket.to(user.room || '').emit('playerMoved', {
+      if (!user) {
+        console.warn('❌ Movement from unknown user:', socket.id)
+        return
+      }
+
+      // Validate movement data
+      if (!data || typeof data.x !== 'number' || typeof data.y !== 'number' || 
+          isNaN(data.x) || isNaN(data.y) ||
+          data.x === null || data.x === undefined || 
+          data.y === null || data.y === undefined) {
+        console.warn(`❌ Invalid movement data from ${user.username}:`, data)
+        return
+      }
+
+      // Additional bounds checking
+      if (data.x < -1000 || data.x > 2000 || data.y < -1000 || data.y > 1500) {
+        console.warn(`❌ Movement out of bounds from ${user.username}:`, data)
+        return
+      }
+
+      // Update user position
+      user.position = { x: data.x, y: data.y }
+      connectedUsers.set(socket.id, user)
+      
+      console.log(`📍 Player ${user.username} moved to:`, { x: data.x, y: data.y })
+      
+      // Broadcast to all other users in the same room
+      if (user.room) {
+        console.log(`📡 Broadcasting movement to room: ${user.room}`)
+        socket.to(user.room).emit('playerMoved', {
           userId: socket.id,
-          position: data
+          position: { x: data.x, y: data.y }
+        })
+      } else {
+        // Broadcast to all other users globally if not in a specific room
+        console.log(`📡 Broadcasting movement globally`)
+        socket.broadcast.emit('playerMoved', {
+          userId: socket.id,
+          position: { x: data.x, y: data.y }
         })
       }
     })

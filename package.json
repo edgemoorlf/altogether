@@ -11,6 +11,12 @@
     "server:dev": "npm run dev --workspace=@altogether/server",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:bugs": "playwright test tests/bug-*-regression.spec.ts",
+    "test:bugs:headed": "playwright test tests/bug-*-regression.spec.ts --headed",
+    "test:bugs:runner": "./scripts/run-bug-tests.sh",
     "lint": "npm run lint --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "electron:dev": "npm run dev --workspace=@altogether/desktop",
@@ -19,10 +25,17 @@
     "mobile:android": "npm run android --workspace=@altogether/mobile",
     "install:all": "npm install && npm install --workspaces"
   },
-  "keywords": ["remote", "collaboration", "virtual-office", "chinese", "teams"],
+  "keywords": [
+    "remote",
+    "collaboration",
+    "virtual-office",
+    "chinese",
+    "teams"
+  ],
   "author": "Altogether Team",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }

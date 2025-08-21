@@ -29,16 +29,62 @@ class WebRTCService {
     try {
       console.log('🎤 Initializing WebRTC with audio:', audioEnabled, 'video:', videoEnabled)
       
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia is not supported in this browser')
+      }
+      
+      console.log('📊 Checking current media permissions...')
+      
+      // Check permission status first
+      if (navigator.permissions) {
+        try {
+          const audioPermission = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+          const videoPermission = videoEnabled ? await navigator.permissions.query({ name: 'camera' as PermissionName }) : null
+          
+          console.log('🎤 Microphone permission:', audioPermission.state)
+          if (videoPermission) {
+            console.log('📹 Camera permission:', videoPermission.state)
+          }
+        } catch (permError) {
+          console.warn('⚠️ Permission API not available:', permError)
+        }
+      }
+      
+      console.log('🚀 Requesting media stream with constraints:', { audio: audioEnabled, video: videoEnabled })
+      
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: audioEnabled,
         video: videoEnabled
       })
+      
+      // Verify the stream and tracks
+      console.log('📺 Media stream received:', this.localStream)
+      console.log('🎵 Audio tracks:', this.localStream.getAudioTracks())
+      console.log('📹 Video tracks:', this.localStream.getVideoTracks())
+      
+      // Check track states
+      this.localStream.getTracks().forEach((track, index) => {
+        console.log(`📌 Track ${index}:`, {
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          muted: track.muted,
+          label: track.label
+        })
+      })
 
       this.isEnabled = true
-      console.log('✅ WebRTC initialized successfully')
+      console.log('✅ WebRTC initialized successfully with', this.localStream.getTracks().length, 'tracks')
       return this.localStream
     } catch (error) {
       console.error('❌ Failed to initialize WebRTC:', error)
+      const errorObj = error as Error
+      console.error('❌ Error details:', {
+        name: errorObj.name || 'Unknown',
+        message: errorObj.message || 'Unknown error',
+        constraint: (error as any).constraint || 'N/A'
+      })
       throw error
     }
   }

@@ -6,6 +6,7 @@ import { RootState, AppDispatch } from './store'
 import { logout } from './store/authSlice'
 import { apiService } from './services/apiService'
 import { themeManager } from './services/themeService'
+import { setupDebugConsole } from './utils/debugConsole'
 import VirtualOffice from './components/VirtualOffice'
 import ProtectedRoute from './components/ProtectedRoute'
 import UserProfileModal from './components/UserProfileModal'
@@ -23,6 +24,9 @@ function App() {
   useEffect(() => {
     // Initialize application
     console.log('Altogether (在一起) - Virtual Office Platform Initialized')
+    
+    // Setup debug console helpers
+    setupDebugConsole()
     
     // Initialize theme system and apply CSS variables
     themeManager.applyThemeToCSS()

@@ -26,12 +26,31 @@ const VoiceVideoManager: React.FC<VoiceVideoManagerProps> = ({ userPositions, cu
     // Initialize WebRTC when component mounts
     const initWebRTC = async () => {
       try {
+        console.log('🔧 VoiceVideoManager: Starting WebRTC initialization...')
+        console.log('🔧 Browser info:', {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          mediaDevices: !!navigator.mediaDevices,
+          getUserMedia: !!navigator.mediaDevices?.getUserMedia
+        })
+        
         await webRTCService.initialize(true, false) // Audio only initially
         setIsWebRTCInitialized(true)
+        console.log('🎉 VoiceVideoManager: WebRTC initialization completed successfully!')
         message.success('语音聊天已启用')
       } catch (error) {
-        console.error('Failed to initialize WebRTC:', error)
-        message.error('无法启用语音聊天，请检查麦克风权限')
+        console.error('💥 VoiceVideoManager: Failed to initialize WebRTC:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorName = error instanceof Error ? error.name : 'Unknown'
+        console.error('💥 Error name:', errorName)
+        console.error('💥 Error message:', errorMessage)
+        if (errorName === 'NotAllowedError') {
+          message.error('麦克风权限被拒绝，请在浏览器设置中允许访问')
+        } else if (errorName === 'NotFoundError') {
+          message.error('未找到麦克风设备')
+        } else {
+          message.error('无法启用语音聊天，请检查麦克风权限')
+        }
       }
     }
 
@@ -101,7 +120,9 @@ const VoiceVideoManager: React.FC<VoiceVideoManagerProps> = ({ userPositions, cu
     // Update spatial audio for all connected users
     userPositions.forEach((position, userId) => {
       if (userId === socketService.socketId) return // Skip self
-      if (!connectedUsers.has(userId)) return // Only for connected users
+      
+      // Check if user is connected by checking if there's a remote stream
+      if (!webRTCService.getRemoteStream(userId)) return // Only for connected users
 
       const distance = Math.sqrt(
         Math.pow(position.x - currentPos.x, 2) + 
@@ -117,7 +138,7 @@ const VoiceVideoManager: React.FC<VoiceVideoManagerProps> = ({ userPositions, cu
       // Update spatial audio
       webRTCService.updateSpatialAudio(userId, distance, angle)
     })
-  }, [userPositions, currentPos, isWebRTCInitialized, connectedUsers])
+  }, [userPositions, currentPos, isWebRTCInitialized]) // Removed connectedUsers
 
   // Separate effect to handle proximity connections
   useEffect(() => {
@@ -144,7 +165,7 @@ const VoiceVideoManager: React.FC<VoiceVideoManagerProps> = ({ userPositions, cu
 
     // Start calls with nearby users not already connected
     nearbyUsers.forEach(userId => {
-      if (!connectedUsers.has(userId)) {
+      if (!webRTCService.getRemoteStream(userId)) {
         console.log('🔊 Starting voice call with nearby user:', userId)
         webRTCService.createOffer(userId)
       }
@@ -152,14 +173,15 @@ const VoiceVideoManager: React.FC<VoiceVideoManagerProps> = ({ userPositions, cu
 
     // Disconnect from far users
     farUsers.forEach(userId => {
-      if (connectedUsers.has(userId)) {
+      if (webRTCService.getRemoteStream(userId)) {
         console.log('🔇 Ending voice call with distant user:', userId)
         webRTCService.disconnect(userId)
       }
     })
 
+    // Update proximity users (safe state update)
     setProximityUsers(nearbyUsers)
-  }, [userPositions, currentPos, isWebRTCInitialized]) // Removed connectedUsers to prevent cycles
+  }, [userPositions, currentPos, isWebRTCInitialized]) // Removed connectedUsers
 
   // Handle audio toggle
   const handleAudioToggle = () => {

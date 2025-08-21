@@ -35,7 +35,7 @@ class SocketService {
   private socket: Socket | null = null
   private isConnected = false
 
-  connect() {
+  connect(userInfo?: { username?: string; token?: string }) {
     if (this.socket?.connected) {
       return this.socket
     }
@@ -44,10 +44,21 @@ class SocketService {
       ? 'wss://your-production-domain.com' 
       : 'http://localhost:3001'
 
-    this.socket = io(serverUrl, {
+    // Include auth info in socket connection
+    const socketOptions: any = {
       transports: ['websocket', 'polling'],
       timeout: 20000,
-    })
+    }
+
+    // Add auth data if provided
+    if (userInfo) {
+      socketOptions.auth = {
+        username: userInfo.username,
+        token: userInfo.token
+      }
+    }
+
+    this.socket = io(serverUrl, socketOptions)
 
     this.setupEventListeners()
     return this.socket
@@ -60,6 +71,12 @@ class SocketService {
     this.socket.on('connect', () => {
       this.isConnected = true
       console.log('✅ Connected to server:', this.socket?.id)
+      
+      // Set current user ID globally for MainScene
+      if (this.socket?.id) {
+        (window as any).currentUserId = this.socket.id
+        console.log('🆔 Set current user ID:', this.socket.id)
+      }
     })
 
     this.socket.on('disconnect', () => {
@@ -70,18 +87,37 @@ class SocketService {
     // Welcome event
     this.socket.on(SOCKET_EVENTS.WELCOME, (data) => {
       console.log('👋 Welcome message:', data.message)
+      console.log('👥 Connected users:', data.connectedUsers)
+      console.log('📍 Existing user positions:', data.existingUserPositions)
+      
       store.dispatch(setOnlineUsers(data.connectedUsers || []))
+      
+      // Notify the game scene about existing users and their positions
+      if (data.existingUserPositions) {
+        window.dispatchEvent(new CustomEvent('existingUsers', { 
+          detail: { users: data.existingUserPositions } 
+        }))
+      }
     })
 
     // User events
     this.socket.on(SOCKET_EVENTS.USER_JOINED, (data) => {
-      console.log('👤 User joined:', data.username)
+      console.log('👤 User joined:', data.username, 'at position:', data.position)
       store.dispatch(addOnlineUser({
         id: data.userId,
         username: data.username,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.username}`,
         isOnline: true,
         socketId: data.userId
+      }))
+      
+      // Notify the game scene about the new user
+      window.dispatchEvent(new CustomEvent('userJoined', { 
+        detail: { 
+          userId: data.userId, 
+          username: data.username,
+          position: data.position 
+        } 
       }))
     })
 
@@ -94,8 +130,9 @@ class SocketService {
 
     // Movement events
     this.socket.on(SOCKET_EVENTS.PLAYER_MOVED, (data) => {
-      // This will be handled by the game scene
-      window.dispatchEvent(new CustomEvent('playerMoved', { detail: data }))
+      console.log('📡 Received player movement from server:', data)
+      // This will be handled by the game scene as remote player movement
+      window.dispatchEvent(new CustomEvent('remotePlayerMoved', { detail: data }))
     })
 
     // Room events
